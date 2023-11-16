@@ -8,34 +8,36 @@ authors:
 - user: lvwerra
 - user: Dahoas
   guest: true
+- user: Nekoriel
+  guest: true
 ---
 
-# Illustrating Reinforcement Learning from Human Feedback (RLHF)
+# Menggambarkan Pembelajaran Penguatan dari Umpan Balik Manusia (RLHF) atau Reinforcement Learning from Human Feedback (RLHF)
 
 
-_This article has been translated to Chinese [简体中文](https://huggingface.co/blog/zh/rlhf) and Vietnamese [đọc tiếng việt](https://trituenhantao.io/kien-thuc/minh-hoa-rlhf-vu-khi-dang-sau-gpt/)_. 
+_Artikel ini adalah versi terjemahan berbahasa Indonesia dari artikel asli [blog hf](https://github.com/huggingface/blog/blob/main/rlhf.md) Artikal ini juga sudah diterjemahkan ke bahasa China [简体中文](https://huggingface.co/blog/zh/rlhf) dan Vietnam [đọc tiếng việt](https://trituenhantao.io/kien-thuc/minh-hoa-rlhf-vu-khi-dang-sau-gpt/)_. 
 
-Language models have shown impressive capabilities in the past few years by generating diverse and compelling text from human input prompts. However, what makes a "good" text is inherently hard to define as it is subjective and context dependent. There are many applications such as writing stories where you want creativity, pieces of informative text which should be truthful, or code snippets that we want to be executable. 
+Model bahasa telah menunjukkan kemampuan yang mengesankan dalam beberapa tahun terakhir dengan menghasilkan teks yang beragam dan menarik dari petunjuk masukan manusia. Namun, apa yang membuat teks menjadi "bagus" secara inheren sulit untuk didefinisikan karena bersifat subjektif dan tergantung pada konteks. Ada banyak aplikasi seperti menulis cerita di mana kita ingin kreativitas, potongan teks informatif yang seharusnya benar, atau potongan kode yang kita ingin dapat dieksekusi.
 
-Writing a loss function to capture these attributes seems intractable and most language models are still trained with a simple next token prediction loss (e.g. cross entropy). To compensate for the shortcomings of the loss itself people define metrics that are designed to better capture human preferences such as [BLEU](https://en.wikipedia.org/wiki/BLEU) or [ROUGE](https://en.wikipedia.org/wiki/ROUGE_(metric)). While being better suited than the loss function itself at measuring performance these metrics simply compare generated text to references with simple rules and are thus also limited. Wouldn't it be great if we use human feedback for generated text as a measure of performance or go even one step further and use that feedback as a loss to optimize the model? That's the idea of Reinforcement Learning from Human Feedback (RLHF); use methods from reinforcement learning to directly optimize a language model with human feedback. RLHF has enabled language models to begin to align a model trained on a general corpus of text data to that of complex human values.
+Menulis sebuah fungsi loss untuk menangkap atribut-atribut ini tampaknya tidak mungkin dan sebagian besar model bahasa masih dilatih dengan fungsi token prediction loss berikutnya yang sederhana (misalnya, cross entropy). Untuk mengkompensasi kekurangan fungsi loss itu sendiri, orang-orang mendefinisikan metrik yang dirancang untuk lebih baik menangkap preferensi manusia seperti BLEU [BLEU](https://en.wikipedia.org/wiki/BLEU) atau ROUGE [ROUGE](https://en.wikipedia.org/wiki/ROUGE_(metric)). Meskipun lebih cocok daripada fungsi loss itu sendiri dalam mengukur kinerja, metrik ini hanya membandingkan teks yang dihasilkan dengan referensi menggunakan aturan sederhana dan oleh karena itu juga terbatas. Bukankah akan hebat jika kita menggunakan umpan balik manusia untuk teks yang dihasilkan sebagai ukuran kinerja atau bahkan melangkah lebih jauh lagi dan menggunakan umpan balik tersebut sebagai loss untuk mengoptimalkan model? Itulah ide dari Pembelajaran Penguatan dari Umpan Balik Manusia atau Reinforcement Learning from Human Feedback (RLHF); menggunakan metode dari pembelajaran penguatan untuk mengoptimalkan model bahasa secara langsung dengan umpan balik manusia. RLHF telah memungkinkan model bahasa untuk mulai menyelaraskan model yang dilatih pada korpus data teks umum dengan nilai-nilai manusia yang kompleks.
 
-RLHF's most recent success was its use in [ChatGPT](https://openai.com/blog/chatgpt/). Given ChatGPT's impressive abilities, we asked it to explain RLHF for us:
+Keberhasilan terbaru RLHF adalah penggunaannya dalam ChatGPT [ChatGPT](https://openai.com/blog/chatgpt/). Mengingat kemampuan ChatGPT yang mengesankan, kami memintanya untuk menjelaskan RLHF untuk kami:
 
 <p align="center">
     <img src="https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/blog/rlhf/chatgpt-explains.png" width="500" />
 </p>
 
-It does surprisingly well, but doesn't quite cover everything. We'll fill in those gaps!
+Ini menghasilkan pekerjaan yang cukup baik, tetapi tidak sepenuhnya mencakup segalanya. Kami akan mengisi celah-celah itu!
 
-# RLHF: Let’s take it step by step
+# RLHF: Mari kita uraikan langkah demi langkah
 
-Reinforcement learning from Human Feedback (also referenced as RL from human preferences) is a challenging concept because it involves a multiple-model training process and different stages of deployment. In this blog post, we’ll break down the training process into three core steps:
+Reinforcement Learning from Human Feedback (atau juga disebut sebagai Reinforcement Learning (RL) dari preferensi manusia) adalah konsep yang menantang karena melibatkan proses pelatihan model ganda dan berbagai tahap penerapan. Dalam postingan blog ini, kami akan memecah proses pelatihan menjadi tiga langkah inti:
 
-1. Pretraining a language model (LM),
-2. gathering data and training a reward model, and
-3. fine-tuning the LM with reinforcement learning.
+1. Pra-pelatihan model bahasa (LM),
+2. Mengumpulkan data dan melatih reward model, dan
+3. Menyetel ulang LM dengan pembelajaran penguatan.
 
-To start, we'll look at how language models are pretrained.
+Untuk memulai, kami akan melihat bagaimana model bahasa dilatih sebelumnya.
 
 ### Pretraining language models
 
